@@ -1,0 +1,118 @@
+version: '3.8'
+
+services:
+  # Laravel Application
+  laravel-app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: router-monitoring-app
+    ports:
+      - "8000:8000"
+    volumes:
+      - .:/var/www/html
+      - ./storage:/var/www/html/storage
+    environment:
+      - APP_ENV=production
+      - APP_DEBUG=false
+      - DB_HOST=mysql
+      - DB_DATABASE=router_monitoring
+      - DB_USERNAME=root
+      - DB_PASSWORD=secret
+    depends_on:
+      - mysql
+    networks:
+      - monitoring-network
+    command: php artisan serve --host=0.0.0.0 --port=8000
+
+  # MySQL Database
+  mysql:
+    image: mysql:8.0
+    container_name: router-monitoring-db
+    ports:
+      - "3306:3306"
+    environment:
+      MYSQL_ROOT_PASSWORD: secret
+      MYSQL_DATABASE: router_monitoring
+    volumes:
+      - mysql-data:/var/lib/mysql
+    networks:
+      - monitoring-network
+
+  # Prometheus
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: router-monitoring-prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml
+      - ./alerts.yml:/etc/prometheus/alerts.yml
+      - prometheus-data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/usr/share/prometheus/console_libraries'
+      - '--web.console.templates=/usr/share/prometheus/consoles'
+    networks:
+      - monitoring-network
+    depends_on:
+      - laravel-app
+
+  # Grafana
+  grafana:
+    image: grafana/grafana:latest
+    container_name: router-monitoring-grafana
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_INSTALL_PLUGINS=grafana-worldmap-panel,grafana-piechart-panel
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./grafana/provisioning:/etc/grafana/provisioning
+      - ./grafana/dashboards:/var/lib/grafana/dashboards
+    networks:
+      - monitoring-network
+    depends_on:
+      - prometheus
+
+  # Node Exporter (optional - for server metrics)
+  node-exporter:
+    image: prom/node-exporter:latest
+    container_name: router-monitoring-node-exporter
+    ports:
+      - "9100:9100"
+    networks:
+      - monitoring-network
+
+  # Laravel Scheduler (for periodic router checks)
+  scheduler:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: router-monitoring-scheduler
+    volumes:
+      - .:/var/www/html
+    environment:
+      - APP_ENV=production
+      - DB_HOST=mysql
+      - DB_DATABASE=router_monitoring
+      - DB_USERNAME=root
+      - DB_PASSWORD=secret
+    depends_on:
+      - mysql
+      - laravel-app
+    networks:
+      - monitoring-network
+    command: php artisan schedule:work
+
+networks:
+  monitoring-network:
+    driver: bridge
+
+volumes:
+  mysql-data:
+  prometheus-data:
+  grafana-data:

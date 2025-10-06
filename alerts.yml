@@ -1,0 +1,55 @@
+# Prometheus Alert Rules for Router Monitoring
+
+groups:
+  - name: router_alerts
+    interval: 60s
+    rules:
+      # Alert when router is down
+      - alert: RouterDown
+        expr: mikrotik_up == 0
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Router {{ $labels.router_name }} is down"
+          description: "Router {{ $labels.router_name }} ({{ $labels.ip_address }}) has been down for more than 5 minutes."
+      
+      # Alert when CPU load is high
+      - alert: HighCPULoad
+        expr: mikrotik_cpu_load > 80
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High CPU load on {{ $labels.router_name }}"
+          description: "Router {{ $labels.router_name }} has CPU load above 80% for more than 10 minutes. Current value: {{ $value }}%"
+      
+      # Alert when memory is low
+      - alert: LowMemory
+        expr: (mikrotik_memory_free / mikrotik_memory_total) * 100 < 10
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Low memory on {{ $labels.router_name }}"
+          description: "Router {{ $labels.router_name }} has less than 10% free memory for more than 10 minutes."
+      
+      # Alert when disk space is low
+      - alert: LowDiskSpace
+        expr: (mikrotik_disk_free / mikrotik_disk_total) * 100 < 20
+        for: 30m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Low disk space on {{ $labels.router_name }}"
+          description: "Router {{ $labels.router_name }} has less than 20% free disk space."
+      
+      # Alert when router was recently restarted
+      - alert: RouterRestarted
+        expr: mikrotik_uptime_seconds < 600
+        for: 1m
+        labels:
+          severity: info
+        annotations:
+          summary: "Router {{ $labels.router_name }} was restarted"
+          description: "Router {{ $labels.router_name }} uptime is less than 10 minutes. It may have been restarted."

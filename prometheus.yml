@@ -1,0 +1,41 @@
+# Prometheus Configuration for Router Monitoring
+
+global:
+  scrape_interval: 60s
+  evaluation_interval: 60s
+  external_labels:
+    monitor: 'router-monitoring'
+    environment: 'production'
+
+# Alertmanager configuration (optional)
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets:
+          # - 'alertmanager:9093'
+
+# Load rules once and periodically evaluate them
+rule_files:
+  - 'alerts.yml'
+
+# Scrape configurations
+scrape_configs:
+  # Laravel API metrics endpoint
+  - job_name: 'mikrotik-routers'
+    scrape_interval: 60s
+    scrape_timeout: 30s
+    metrics_path: '/api/metrics'
+    static_configs:
+      - targets: ['laravel-app:8000']
+        labels:
+          service: 'router-monitoring'
+          
+  # Prometheus self-monitoring
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+
+  # Node Exporter (optional - for server metrics)
+  - job_name: 'node-exporter'
+    static_configs:
+      - targets: ['node-exporter:9100']
