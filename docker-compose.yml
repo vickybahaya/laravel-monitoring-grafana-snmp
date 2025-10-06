@@ -9,9 +9,6 @@ services:
     container_name: router-monitoring-app
     ports:
       - "8000:80"
-    volumes:
-      - .:/var/www/html
-      - ./storage:/var/www/html/storage
     environment:
       - APP_NAME=RouterMonitoring
       - APP_ENV=production
@@ -23,17 +20,13 @@ services:
       - DB_DATABASE=router_monitoring
       - DB_USERNAME=root
       - DB_PASSWORD=secret
+      - SEED_DATABASE=true
     depends_on:
       mysql:
         condition: service_healthy
     networks:
       - monitoring-network
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost/api/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 40s
+    restart: unless-stopped
 
   # MySQL Database
   mysql:
@@ -56,6 +49,7 @@ services:
       timeout: 5s
       retries: 5
       start_period: 30s
+    restart: unless-stopped
 
   # Prometheus
   prometheus:
@@ -76,8 +70,8 @@ services:
     networks:
       - monitoring-network
     depends_on:
-      laravel-app:
-        condition: service_healthy
+      - laravel-app
+    restart: unless-stopped
 
   # Grafana
   grafana:
@@ -98,6 +92,7 @@ services:
       - monitoring-network
     depends_on:
       - prometheus
+    restart: unless-stopped
 
 networks:
   monitoring-network:
